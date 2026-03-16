@@ -1,0 +1,22 @@
+title = "SecurePipeline Hub - GitLeaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hardcoded-api-key"
+description = "Hardcoded API Key detected"
+regex = '''(?i)(api_key|apikey)\s*=\s*["']([^"']{8,})["']'''
+tags = ["api-key", "hardcoded"]
+
+[[rules]]
+id = "hardcoded-password"
+description = "Hardcoded Password detected"
+regex = '''(?i)(password|passwd|pwd)\s*=\s*["']([^"']{4,})["']'''
+tags = ["password", "hardcoded"]
+
+[[rules]]
+id = "hardcoded-secret"
+description = "Hardcoded Secret detected"
+regex = '''(?i)(secret|secret_key)\s*=\s*["']([^"']{8,})["']'''
+tags = ["secret", "hardcoded"]

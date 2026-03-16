@@ -95,6 +95,7 @@ jobs:
         run: |
           ./gitleaks detect \
             --source=. \
+            --config=scanners/gitleaks.toml \
             --report-format=json \
             --report-path=gitleaks-results.json \
             --exit-code=0
@@ -148,6 +149,7 @@ jobs:
             --format JSON \
             --out . \
             --enableRetired \
+            --enableExperimental \
             --nvdApiDelay 6000 \
             --disableAssembly \
             || true
