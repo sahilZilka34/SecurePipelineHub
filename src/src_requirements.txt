@@ -1,3 +1,5 @@
-# Vulnerable version for testing
-# Flask 2.0.1 contains CVE-2023-30861 (intentional for Dependency-Check testing)
+# Vulnerable version intentionally for Dependency-Check testing
+# Flask 2.0.1 contains CVE-2023-30861
 Flask==2.0.1
+Werkzeug==2.0.3
+Jinja2==3.0.3
