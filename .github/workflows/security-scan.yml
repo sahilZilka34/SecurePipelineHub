@@ -74,9 +74,55 @@ jobs:
           path: semgrep-results.json
           retention-days: 30
 
+  gitleaks-scan:
+    name: GitLeaks Secrets Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download GitLeaks binary
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+          chmod +x gitleaks
+          echo "✅ GitLeaks downloaded: $(./gitleaks version)"
+
+      - name: Run GitLeaks scan
+        run: |
+          ./gitleaks detect \
+            --source=. \
+            --report-format=json \
+            --report-path=gitleaks-results.json \
+            --exit-code=0
+          echo "✅ GitLeaks scan completed"
+
+      - name: Check secrets found
+        if: always()
+        run: |
+          if [ -f gitleaks-results.json ]; then
+            COUNT=$(python3 -c "import json; data=json.load(open('gitleaks-results.json')); print(len(data) if isinstance(data, list) else 0)" 2>/dev/null || echo "0")
+            echo "🔑 Secrets found: $COUNT"
+            echo "Expected: 3 (API_KEY, DATABASE_PASSWORD, AWS_SECRET)"
+          else
+            echo "⚠️ No results file found"
+            echo "[]" > gitleaks-results.json
+          fi
+
+      - name: Upload GitLeaks results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-results
+          path: gitleaks-results.json
+          retention-days: 30
+
   summary:
     name: Scan Summary
-    needs: [test-app, semgrep-scan]
+    needs: [test-app, semgrep-scan, gitleaks-scan]
     runs-on: ubuntu-latest
     if: always()
 
