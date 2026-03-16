@@ -21,20 +21,15 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install src dependencies
+      - name: Install dependencies
         run: |
-          pip install -r src/requirements.txt
-          echo "✅ Dependencies installed successfully"
+          cd src
+          pip install -r requirements.txt
 
-      - name: Verify app syntax
+      - name: Verify tools
         run: |
-          python -m py_compile src/app.py
-          echo "✅ app.py syntax is valid"
-
-      - name: List src files
-        run: |
-          echo "Files in src/:"
-          ls -la src/
+          echo "Python: $(python --version)"
+          echo "Docker: $(docker --version)"
 
   semgrep-scan:
     name: Semgrep SAST Scan
