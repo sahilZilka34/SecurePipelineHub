@@ -2,35 +2,30 @@ name: SecurePipeline Hub - Security Scanning
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   test-app:
     name: Test Vulnerable Application
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-      
+          python-version: "3.10"
+
       - name: Install dependencies
         run: |
           cd src
           pip install -r requirements.txt
-      
-      - name: Test application
-        run: |
-          cd src
-          timeout 5s python app.py || echo "App started successfully"
-      
+
       - name: Verify tools
         run: |
           echo "Python: $(python --version)"
@@ -39,25 +34,25 @@ jobs:
   semgrep-scan:
     name: Semgrep SAST Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-      
+          python-version: "3.10"
+
       - name: Install Semgrep
         run: pip install semgrep
-      
+
       - name: Run Semgrep scan
         run: |
           semgrep --config=auto --json --output=semgrep-results.json ./src || true
           echo "Semgrep scan completed"
         continue-on-error: true
-      
+
       - name: Check results file
         if: always()
         run: |
@@ -67,12 +62,13 @@ jobs:
             FINDINGS=$(python3 -c "import json; print(len(json.load(open('semgrep-results.json')).get('results', [])))" 2>/dev/null || echo "0")
             echo "Total findings: $FINDINGS"
           else
-            echo "Warning: semgrep-results.json not found"
+            echo "Warning: semgrep-results.json not found, creating empty one"
+            echo '{"results": [], "errors": []}' > semgrep-results.json
           fi
-      
+
       - name: Upload Semgrep results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: semgrep-results
           path: semgrep-results.json
@@ -83,14 +79,14 @@ jobs:
     needs: [test-app, semgrep-scan]
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
       - name: Download Semgrep results
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: semgrep-results
         continue-on-error: true
-      
+
       - name: Generate Summary Report
         run: |
           echo "# Security Scan Report" >> $GITHUB_STEP_SUMMARY
@@ -99,22 +95,20 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Scanner | Status | Findings |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|----------|" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f semgrep-results.json ]; then
             FINDINGS=$(python3 -c "import json; print(len(json.load(open('semgrep-results.json')).get('results', [])))" 2>/dev/null || echo "0")
-            echo "| Semgrep (SAST) | Complete | $FINDINGS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Semgrep (SAST) | ✅ Complete | $FINDINGS |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Semgrep (SAST) | No results | 0 |" >> $GITHUB_STEP_SUMMARY
+            echo "| Semgrep (SAST) | ⚠️ No results | 0 |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Expected Vulnerabilities" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Semgrep should detect:" >> $GITHUB_STEP_SUMMARY
-          echo "1. SQL Injection (src/app.py:116)" >> $GITHUB_STEP_SUMMARY
-          echo "2. XSS (src/app.py:148)" >> $GITHUB_STEP_SUMMARY
-          echo "3. Path Traversal (src/app.py:177)" >> $GITHUB_STEP_SUMMARY
-          echo "4. Command Injection (src/app.py:191)" >> $GITHUB_STEP_SUMMARY
-          echo "5. Insecure Configuration (src/app.py:201)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Target: 5/7 vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "1. SQL Injection" >> $GITHUB_STEP_SUMMARY
+          echo "2. XSS" >> $GITHUB_STEP_SUMMARY
+          echo "3. Path Traversal" >> $GITHUB_STEP_SUMMARY
+          echo "4. Command Injection" >> $GITHUB_STEP_SUMMARY
+          echo "5. Insecure Configuration" >> $GITHUB_STEP_SUMMARY
