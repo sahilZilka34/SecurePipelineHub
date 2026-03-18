@@ -140,7 +140,7 @@ jobs:
 
       - name: Install vulnerable packages
         run: |
-          pip install -r src/requirements.txt
+          pip install -r src_requirements.txt
           echo "✅ Packages installed"
 
       - name: Run pip-audit scan
