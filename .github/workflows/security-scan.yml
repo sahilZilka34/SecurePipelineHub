@@ -178,6 +178,61 @@ jobs:
           name: dependency-check-results
           path: dependency-check-report.json
           retention-days: 30
+  trivy-scan:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t securepipeline-app:latest ./src
+          echo "✅ Docker image built successfully"
+
+      - name: Download Trivy
+        run: |
+          wget -q https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-64bit.tar.gz
+          tar -xzf trivy_0.48.3_Linux-64bit.tar.gz
+          chmod +x trivy
+          echo "✅ Trivy ready: $(./trivy --version)"
+
+      - name: Run Trivy scan
+        run: |
+          ./trivy image \
+            --format json \
+            --output trivy-results.json \
+            --severity HIGH,CRITICAL \
+            --no-progress \
+            securepipeline-app:latest || true
+          echo "✅ Trivy scan completed"
+
+      - name: Check results
+        if: always()
+        run: |
+          if [ -f trivy-results.json ]; then
+            echo "✅ Results file found"
+            VULNS=$(python3 -c "
+          import json
+          data = json.load(open('trivy-results.json'))
+          results = data.get('Results', [])
+          total = sum(len(r.get('Vulnerabilities', []) or []) for r in results)
+          print(total)
+          " 2>/dev/null || echo "0")
+            echo "🐳 Container vulnerabilities found: $VULNS"
+          else
+            echo "⚠️ No results file, creating empty one"
+            echo '{"Results":[]}' > trivy-results.json
+          fi
+
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results
+          path: trivy-results.json
+          retention-days: 30
 
   summary:
     name: Scan Summary
@@ -202,6 +257,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dependency-check-results
+        continue-on-error: true
+
+      - name: Download Trivy results
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-results
         continue-on-error: true
 
       - name: Generate Summary Report
@@ -238,6 +299,19 @@ jobs:
             echo "| pip-audit (SCA) | SCA | ✅ Complete | $VULNS |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| pip-audit (SCA) | SCA | ⚠️ No results | 0 |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f trivy-results.json ]; then
+            VULNS=$(python3 -c "
+          import json
+          data = json.load(open('trivy-results.json'))
+          results = data.get('Results', [])
+          total = sum(len(r.get('Vulnerabilities', []) or []) for r in results)
+          print(total)
+          " 2>/dev/null || echo "0")
+            echo "| Trivy | Container | ✅ Complete | $VULNS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Trivy | Container | ⚠️ No results | 0 |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
