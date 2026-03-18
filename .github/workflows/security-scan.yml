@@ -138,14 +138,14 @@ jobs:
           pip install pip-audit
           echo "✅ pip-audit installed: $(pip-audit --version)"
 
+      - name: Install vulnerable packages
+        run: |
+          pip install -r src/requirements.txt
+          echo "✅ Packages installed"
+
       - name: Run pip-audit scan
         run: |
-          pip-audit \
-            -r src/requirements.txt \
-            -f json \
-            -o dependency-check-report.json \
-            --no-deps \
-            || true
+          pip-audit --format json --output dependency-check-report.json || true
           echo "✅ pip-audit scan completed"
 
       - name: Check results
@@ -153,17 +153,21 @@ jobs:
         run: |
           if [ -f dependency-check-report.json ]; then
             echo "✅ Results file found"
-            VULNS=$(python3 -c "
-          import json
-          data = json.load(open('dependency-check-report.json'))
-          vulns = data.get('vulnerabilities', [])
-          print(len(vulns))
-          " 2>/dev/null || echo "0")
-            echo "🔍 Vulnerable packages found: $VULNS"
-            echo "Expected: CVE-2023-30861 in Flask==2.0.1"
+            cat dependency-check-report.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          print('Raw structure:', type(data))
+          if isinstance(data, list):
+            vulns = [item for item in data if item.get('vulns')]
+            print(f'Vulnerable packages: {len(vulns)}')
+            for item in vulns:
+              print(f'  - {item[\"name\"]}=={item[\"version\"]}: {[v[\"id\"] for v in item[\"vulns\"]]}')
+          elif isinstance(data, dict):
+            print('Keys:', list(data.keys()))
+          "
           else
-            echo "⚠️ No results file, creating empty one"
-            echo '{"dependencies":[],"vulnerabilities":[]}' > dependency-check-report.json
+            echo "⚠️ No results file"
+            echo '[]' > dependency-check-report.json
           fi
 
       - name: Upload dependency scan results
@@ -224,7 +228,11 @@ jobs:
             VULNS=$(python3 -c "
           import json
           data = json.load(open('dependency-check-report.json'))
-          print(len(data.get('vulnerabilities', [])))
+          if isinstance(data, list):
+            total = sum(len(item.get('vulns', [])) for item in data)
+          else:
+            total = 0
+          print(total)
           " 2>/dev/null || echo "0")
             echo "| pip-audit (SCA) | SCA | ✅ Complete | $VULNS |" >> $GITHUB_STEP_SUMMARY
           else
