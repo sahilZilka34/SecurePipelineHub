@@ -225,10 +225,78 @@ jobs:
           name: trivy-results
           path: trivy-results.json
           retention-days: 30
+  zap-scan:
+    name: OWASP ZAP DAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install app dependencies
+        run: |
+          pip install -r src/requirements.txt
+          echo "✅ Dependencies installed"
+
+      - name: Start vulnerable app
+        run: |
+          cd src
+          python app.py &
+          echo $! > /tmp/app.pid
+          echo "✅ App started with PID $(cat /tmp/app.pid)"
+          sleep 5
+          curl -s http://localhost:5000 > /dev/null && echo "✅ App is responding" || echo "⚠️ App not responding"
+
+      - name: Run OWASP ZAP scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://localhost:5000
+          rules_file_name: .zap/rules.tsv
+          cmd_options: -J zap-results.json
+        continue-on-error: true
+
+      - name: Move ZAP results
+        if: always()
+        run: |
+          if [ -f zap-results.json ]; then
+            echo "✅ ZAP results found"
+            ALERTS=$(python3 -c "
+          import json
+          data = json.load(open('zap-results.json'))
+          sites = data.get('site', [])
+          total = sum(len(s.get('alerts', [])) for s in sites)
+          print(total)
+          " 2>/dev/null || echo "0")
+            echo "🌐 ZAP alerts found: $ALERTS"
+          else
+            echo "⚠️ No ZAP results, creating empty file"
+            echo '{"site":[]}' > zap-results.json
+          fi
+
+      - name: Stop vulnerable app
+        if: always()
+        run: |
+          if [ -f /tmp/app.pid ]; then
+            kill $(cat /tmp/app.pid) || true
+            echo "✅ App stopped"
+          fi
+
+      - name: Upload ZAP results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-results
+          path: zap-results.json
+          retention-days: 30
 
   summary:
     name: Scan Summary
-    needs: [test-app, semgrep-scan, gitleaks-scan, dependency-check]
+    needs: [test-app, semgrep-scan, gitleaks-scan, dependency-check, trivy-scan, zap-scan]
     runs-on: ubuntu-latest
     if: always()
 
@@ -255,6 +323,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: trivy-results
+           
+      - name: Download ZAP results
+        uses: actions/download-artifact@v4
+        with:
+          name: zap-results
         continue-on-error: true
 
       - name: Generate Summary Report
@@ -304,6 +377,19 @@ jobs:
             echo "| Trivy | Container | ✅ Complete | $VULNS |" >> $GITHUB_STEP_SUMMARY
           else
             echo "| Trivy | Container | ⚠️ No results | 0 |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f zap-results.json ]; then
+            ALERTS=$(python3 -c "
+          import json
+          data = json.load(open('zap-results.json'))
+          sites = data.get('site', [])
+          total = sum(len(s.get('alerts', [])) for s in sites)
+          print(total)
+          " 2>/dev/null || echo "0")
+            echo "| OWASP ZAP | DAST | ✅ Complete | $ALERTS |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| OWASP ZAP | DAST | ⚠️ No results | 0 |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
