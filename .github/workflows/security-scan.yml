@@ -140,6 +140,7 @@ jobs:
 
       - name: Install vulnerable packages
         run: |
+          cd src
           pip install -r src_requirements.txt
           echo "✅ Packages installed"
 
