@@ -329,15 +329,6 @@ jobs:
             kill $(cat /tmp/app.pid) || true
             echo "✅ App stopped"
           fi
-
-      - name: Upload ZAP results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-results
-          path: zap-results.json
-          retention-days: 30
-
   summary:
     name: Scan Summary
     needs: [test-app, semgrep-scan, gitleaks-scan, dependency-check, trivy-scan, zap-scan]
