@@ -443,3 +443,82 @@ jobs:
           echo "- **Semgrep**: 5 code vulnerabilities (SQLi, XSS, Path Traversal, CMDi, Debug mode)" >> $GITHUB_STEP_SUMMARY
           echo "- **GitLeaks**: 3 hardcoded secrets (API_KEY, DATABASE_PASSWORD, AWS_SECRET)" >> $GITHUB_STEP_SUMMARY
           echo "- **Dep-Check**: CVE-2023-30861 in Flask==2.0.1" >> $GITHUB_STEP_SUMMARY
+  normalize:
+    name: Normalize Scanner Outputs
+    needs: [semgrep-scan, gitleaks-scan, dependency-check, trivy-scan, zap-scan]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Download all scanner results
+        run: echo "Downloading artifacts..."
+
+      - name: Download Semgrep results
+        uses: actions/download-artifact@v4
+        with:
+          name: semgrep-results
+          path: tests/sample_data
+        continue-on-error: true
+
+      - name: Download GitLeaks results
+        uses: actions/download-artifact@v4
+        with:
+          name: gitleaks-results
+          path: tests/sample_data
+        continue-on-error: true
+
+      - name: Download Dependency-Check results
+        uses: actions/download-artifact@v4
+        with:
+          name: dependency-check-results
+          path: tests/sample_data
+        continue-on-error: true
+
+      - name: Download Trivy results
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-results
+          path: tests/sample_data
+        continue-on-error: true
+
+      - name: Download ZAP results
+        uses: actions/download-artifact@v4
+        with:
+          name: zap-results
+          path: tests/sample_data
+        continue-on-error: true
+
+      - name: Run Normalizer
+        run: |
+          python processing/normalizer.py
+          echo "✅ Normalization complete"
+
+      - name: Show normalization summary
+        run: |
+          python3 -c "
+          import json
+          data = json.load(open('normalized-findings.json'))
+          print(f'Total findings: {len(data)}')
+          by_source = {}
+          by_severity = {}
+          for f in data:
+              by_source[f['source']] = by_source.get(f['source'], 0) + 1
+              by_severity[f['severity']] = by_severity.get(f['severity'], 0) + 1
+          print('By source:', by_source)
+          print('By severity:', by_severity)
+          "
+
+      - name: Upload normalized findings
+        uses: actions/upload-artifact@v4
+        with:
+          name: normalized-findings
+          path: normalized-findings.json
+          retention-days: 30
