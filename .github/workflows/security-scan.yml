@@ -273,25 +273,27 @@ jobs:
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: http://localhost:5000
-          cmd_options: -J zap-results.json -l WARN
+          cmd_options: -l WARN
         continue-on-error: true
 
       - name: Process ZAP results
         if: always()
         run: |
-          echo "--- Checking for ZAP output files ---"
-          ls -la *.json 2>/dev/null || echo "No JSON files in root"
-          ls -la /github/workspace/*.json 2>/dev/null || echo "No JSON in workspace"
-          find . -name "*.json" -newer /tmp/app.pid 2>/dev/null || echo "No new JSON files"
-
-          if [ -f zap-results.json ]; then
-            echo "✅ zap-results.json found"
-          elif [ -f report_json.json ]; then
+          # ZAP action saves to report_json.json automatically
+          if [ -f report_json.json ]; then
+            echo "✅ Found report_json.json"
             cp report_json.json zap-results.json
-            echo "✅ Copied report_json.json to zap-results.json"
+            ALERTS=$(python3 -c "
+          import json
+          data = json.load(open('zap-results.json'))
+          sites = data.get('site', [])
+          total = sum(len(s.get('alerts', [])) for s in sites)
+          print(total)
+          " 2>/dev/null || echo "0")
+            echo "🌐 ZAP alerts found: $ALERTS"
           else
-            echo "⚠️ No ZAP results found, creating empty file"
-            echo '{"site":[{"alerts":[{"name":"Test Alert","riskdesc":"Medium (Medium)","cweid":"79","instances":[]}]}]}' > zap-results.json
+            echo "⚠️ report_json.json not found"
+            echo '{"site":[]}' > zap-results.json
           fi
 
           ALERTS=$(python3 -c "
