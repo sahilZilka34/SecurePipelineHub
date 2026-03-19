@@ -240,7 +240,8 @@ jobs:
 
       - name: Install app dependencies
         run: |
-          pip install -r src/requirements.txt
+          cd src
+          pip install -r src_requirements.txt
           echo "✅ Dependencies installed"
 
       - name: Start vulnerable app
@@ -331,7 +332,15 @@ jobs:
           fi
   summary:
     name: Scan Summary
-    needs: [test-app, semgrep-scan, gitleaks-scan, dependency-check, trivy-scan, zap-scan]
+    needs:
+      [
+        test-app,
+        semgrep-scan,
+        gitleaks-scan,
+        dependency-check,
+        trivy-scan,
+        zap-scan,
+      ]
     runs-on: ubuntu-latest
     if: always()
 
@@ -358,7 +367,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: trivy-results
-           
+
       - name: Download ZAP results
         uses: actions/download-artifact@v4
         with:
@@ -400,7 +409,7 @@ jobs:
           else
             echo "| pip-audit (SCA) | SCA | ⚠️ No results | 0 |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           if [ -f trivy-results.json ]; then
             VULNS=$(python3 -c "
           import json
