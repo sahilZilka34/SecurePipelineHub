@@ -1,0 +1,91 @@
+[
+ {
+  "Description": "Hardcoded API Key detected",
+  "StartLine": 13,
+  "EndLine": 13,
+  "StartColumn": 2,
+  "EndColumn": 35,
+  "Match": "API_KEY = \"super_secret_key_12345\"",
+  "Secret": "API_KEY = \"super_secret_key_12345\"",
+  "File": "src/app.py",
+  "SymlinkFile": "",
+  "Commit": "523213222b1f81300d43cc58e7f28ae1aa0484b7",
+  "Entropy": 4.3815804,
+  "Author": "sahilZilka34",
+  "Email": "sahilzilka@gmail.com",
+  "Date": "2026-02-26T13:19:54Z",
+  "Message": "Initial commit with vulnerable test app",
+  "Tags": [
+   "api-key",
+   "hardcoded"
+  ],
+  "RuleID": "hardcoded-api-key",
+  "Fingerprint": "523213222b1f81300d43cc58e7f28ae1aa0484b7:src/app.py:hardcoded-api-key:13"
+ },
+ {
+  "Description": "Identified a pattern that may indicate AWS credentials, risking unauthorized cloud resource access and data breaches on AWS platforms.",
+  "StartLine": 15,
+  "EndLine": 15,
+  "StartColumn": 16,
+  "EndColumn": 35,
+  "Match": "AKIAIOSFODNN7EXAMPLE",
+  "Secret": "AKIAIOSFODNN7EXAMPLE",
+  "File": "src/app.py",
+  "SymlinkFile": "",
+  "Commit": "523213222b1f81300d43cc58e7f28ae1aa0484b7",
+  "Entropy": 3.6841838,
+  "Author": "sahilZilka34",
+  "Email": "sahilzilka@gmail.com",
+  "Date": "2026-02-26T13:19:54Z",
+  "Message": "Initial commit with vulnerable test app",
+  "Tags": [],
+  "RuleID": "aws-access-token",
+  "Fingerprint": "523213222b1f81300d43cc58e7f28ae1aa0484b7:src/app.py:aws-access-token:15"
+ },
+ {
+  "Description": "Hardcoded Secret detected",
+  "StartLine": 15,
+  "EndLine": 15,
+  "StartColumn": 6,
+  "EndColumn": 36,
+  "Match": "SECRET = \"AKIAIOSFODNN7EXAMPLE\"",
+  "Secret": "SECRET = \"AKIAIOSFODNN7EXAMPLE\"",
+  "File": "src/app.py",
+  "SymlinkFile": "",
+  "Commit": "523213222b1f81300d43cc58e7f28ae1aa0484b7",
+  "Entropy": 4.1556516,
+  "Author": "sahilZilka34",
+  "Email": "sahilzilka@gmail.com",
+  "Date": "2026-02-26T13:19:54Z",
+  "Message": "Initial commit with vulnerable test app",
+  "Tags": [
+   "secret",
+   "hardcoded"
+  ],
+  "RuleID": "hardcoded-secret",
+  "Fingerprint": "523213222b1f81300d43cc58e7f28ae1aa0484b7:src/app.py:hardcoded-secret:15"
+ },
+ {
+  "Description": "Hardcoded Password detected",
+  "StartLine": 14,
+  "EndLine": 14,
+  "StartColumn": 11,
+  "EndColumn": 31,
+  "Match": "PASSWORD = \"admin123\"",
+  "Secret": "PASSWORD = \"admin123\"",
+  "File": "src/app.py",
+  "SymlinkFile": "",
+  "Commit": "523213222b1f81300d43cc58e7f28ae1aa0484b7",
+  "Entropy": 4.106603,
+  "Author": "sahilZilka34",
+  "Email": "sahilzilka@gmail.com",
+  "Date": "2026-02-26T13:19:54Z",
+  "Message": "Initial commit with vulnerable test app",
+  "Tags": [
+   "password",
+   "hardcoded"
+  ],
+  "RuleID": "hardcoded-password",
+  "Fingerprint": "523213222b1f81300d43cc58e7f28ae1aa0484b7:src/app.py:hardcoded-password:14"
+ }
+]
