@@ -562,11 +562,39 @@ jobs:
           print('By SLA status:', status_counts)
           print(f'Flagged for Sentinel: {sentinel_count}')
           "
+      
+      # ── Step 5: Compliance Mapper ──────────────────────────────────────
+      - name: Run Compliance Mapper
+        run: |
+          python processing/compliance_mapper.py
+          echo "✅ Compliance mapping complete"
+
+      - name: Show compliance summary
+        run: |
+          python3 -c "
+          import json
+          data = json.load(open('final-findings.json'))
+          category_counts = {}
+          untagged = 0
+          for f in data:
+              tags = f.get('compliance_tags', [])
+              if tags:
+                  for t in tags:
+                      category_counts[t] = category_counts.get(t, 0) + 1
+              else:
+                  untagged += 1
+          print(f'Total: {len(data)} findings')
+          print(f'Tagged: {len(data) - untagged}')
+          print(f'Untagged: {untagged}')
+          print(f'OWASP categories covered: {len(category_counts)}')
+          for cat, count in sorted(category_counts.items()):
+              print(f'  {cat[:50]}: {count}')
+          "
 
     # ── Upload final enriched findings ────────────────────────────────
       - name: Upload enriched findings
         uses: actions/upload-artifact@v4
         with:
           name: enriched-findings
-          path: sla-findings.json
+          path: final-findings.json
           retention-days: 30
