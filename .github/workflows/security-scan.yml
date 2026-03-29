@@ -540,11 +540,33 @@ jobs:
           print('By method:', methods)
           print('By assignee:', assignees)
           "
+      # ── Step 4: SLA Engine ─────────────────────────────────────────────
+      - name: Run SLA Engine
+        run: |
+          python processing/sla_engine.py
+          echo "✅ SLA assignment complete"
 
-      # ── Upload final enriched findings ────────────────────────────────
+      - name: Show SLA summary
+        run: |
+          python3 -c "
+          import json
+          data = json.load(open('sla-findings.json'))
+          status_counts = {}
+          sentinel_count = 0
+          for f in data:
+              s = f.get('sla_status', 'UNKNOWN')
+              status_counts[s] = status_counts.get(s, 0) + 1
+              if f.get('sentinel_escalate'):
+                  sentinel_count += 1
+          print(f'Total: {len(data)}')
+          print('By SLA status:', status_counts)
+          print(f'Flagged for Sentinel: {sentinel_count}')
+          "
+
+    # ── Upload final enriched findings ────────────────────────────────
       - name: Upload enriched findings
         uses: actions/upload-artifact@v4
         with:
           name: enriched-findings
-          path: owned-findings.json
+          path: sla-findings.json
           retention-days: 30
