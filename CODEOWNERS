@@ -1,0 +1,19 @@
+# SecurePipeline Hub - Code Owners
+# Format: file_pattern    @owner
+
+# Application code
+src/app.py              sahil@securepipeline.dev
+src/                    backend-team@securepipeline.dev
+
+# Configuration
+config/                 devops-team@securepipeline.dev
+scanners/               security-team@securepipeline.dev
+
+# Docker
+**/Dockerfile           devops-team@securepipeline.dev
+
+# Python files
+*.py                    python-leads@securepipeline.dev
+
+# Default owner
+*                       sahil@securepipeline.dev

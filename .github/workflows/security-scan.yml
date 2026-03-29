@@ -120,6 +120,7 @@ jobs:
           name: gitleaks-results
           path: gitleaks-results.json
           retention-days: 30
+
   dependency-check:
     name: OWASP Dependency Check
     runs-on: ubuntu-latest
@@ -178,6 +179,7 @@ jobs:
           name: dependency-check-results
           path: dependency-check-report.json
           retention-days: 30
+
   trivy-scan:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
@@ -225,6 +227,7 @@ jobs:
           name: trivy-results
           path: trivy-results.json
           retention-days: 30
+
   zap-scan:
     name: OWASP ZAP DAST Scan
     runs-on: ubuntu-latest
@@ -279,7 +282,6 @@ jobs:
       - name: Process ZAP results
         if: always()
         run: |
-          # ZAP action saves to report_json.json automatically
           if [ -f report_json.json ]; then
             echo "✅ Found report_json.json"
             cp report_json.json zap-results.json
@@ -295,15 +297,6 @@ jobs:
             echo "⚠️ report_json.json not found"
             echo '{"site":[]}' > zap-results.json
           fi
-
-          ALERTS=$(python3 -c "
-          import json
-          data = json.load(open('zap-results.json'))
-          sites = data.get('site', [])
-          total = sum(len(s.get('alerts', [])) for s in sites)
-          print(total)
-          " 2>/dev/null || echo "0")
-          echo "🌐 ZAP alerts found: $ALERTS"
 
       - name: Show app logs
         if: always()
@@ -325,24 +318,9 @@ jobs:
           path: zap-results.json
           retention-days: 30
 
-      - name: Stop vulnerable app
-        if: always()
-        run: |
-          if [ -f /tmp/app.pid ]; then
-            kill $(cat /tmp/app.pid) || true
-            echo "✅ App stopped"
-          fi
   summary:
     name: Scan Summary
-    needs:
-      [
-        test-app,
-        semgrep-scan,
-        gitleaks-scan,
-        dependency-check,
-        trivy-scan,
-        zap-scan,
-      ]
+    needs: [test-app, semgrep-scan, gitleaks-scan, dependency-check, trivy-scan, zap-scan]
     runs-on: ubuntu-latest
     if: always()
 
@@ -369,6 +347,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: trivy-results
+        continue-on-error: true
 
       - name: Download ZAP results
         uses: actions/download-artifact@v4
@@ -443,8 +422,9 @@ jobs:
           echo "- **Semgrep**: 5 code vulnerabilities (SQLi, XSS, Path Traversal, CMDi, Debug mode)" >> $GITHUB_STEP_SUMMARY
           echo "- **GitLeaks**: 3 hardcoded secrets (API_KEY, DATABASE_PASSWORD, AWS_SECRET)" >> $GITHUB_STEP_SUMMARY
           echo "- **Dep-Check**: CVE-2023-30861 in Flask==2.0.1" >> $GITHUB_STEP_SUMMARY
+
   normalize:
-    name: Normalize Scanner Outputs
+    name: Normalize and Process Findings
     needs: [semgrep-scan, gitleaks-scan, dependency-check, trivy-scan, zap-scan]
     runs-on: ubuntu-latest
     if: always()
@@ -458,9 +438,7 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Download all scanner results
-        run: echo "Downloading artifacts..."
-
+      # ── Download all 5 scanner artifacts ──────────────────────────────
       - name: Download Semgrep results
         uses: actions/download-artifact@v4
         with:
@@ -496,6 +474,7 @@ jobs:
           path: tests/sample_data
         continue-on-error: true
 
+      # ── Step 1: Normalizer ─────────────────────────────────────────────
       - name: Run Normalizer
         run: |
           python processing/normalizer.py
@@ -516,9 +495,56 @@ jobs:
           print('By severity:', by_severity)
           "
 
-      - name: Upload normalized findings
+      # ── Step 2: Risk Engine ────────────────────────────────────────────
+      - name: Run Risk Engine
+        run: |
+          python processing/risk_engine.py
+          echo "✅ Risk scoring complete"
+
+      - name: Show risk scoring summary
+        run: |
+          python3 -c "
+          import json
+          data = json.load(open('scored-findings.json'))
+          by_priority = {}
+          for f in data:
+              p = f.get('priority', 'UNKNOWN')
+              by_priority[p] = by_priority.get(p, 0) + 1
+          print(f'Total scored: {len(data)}')
+          print('By priority:', by_priority)
+          top5 = sorted(data, key=lambda x: x.get('risk_score', 0), reverse=True)[:5]
+          print('Top 5 findings:')
+          for f in top5:
+              print(f'  [{f.get(\"risk_score\",0):3d}] {f.get(\"priority\",\"?\"):8s} | {f.get(\"source\",\"?\"):12s} | {f.get(\"title\",\"\")[:50]}')
+          "
+
+      # ── Step 3: Ownership Engine ───────────────────────────────────────
+      - name: Run Ownership Engine
+        run: |
+          python processing/ownership_engine.py
+          echo "✅ Ownership assignment complete"
+
+      - name: Show ownership summary
+        run: |
+          python3 -c "
+          import json
+          data = json.load(open('owned-findings.json'))
+          methods = {}
+          assignees = {}
+          for f in data:
+              m = f.get('assignment_method', 'unknown')
+              a = f.get('assignee', 'unknown')
+              methods[m] = methods.get(m, 0) + 1
+              assignees[a] = assignees.get(a, 0) + 1
+          print(f'Total assigned: {len(data)}')
+          print('By method:', methods)
+          print('By assignee:', assignees)
+          "
+
+      # ── Upload final enriched findings ────────────────────────────────
+      - name: Upload enriched findings
         uses: actions/upload-artifact@v4
         with:
-          name: normalized-findings
-          path: normalized-findings.json
+          name: enriched-findings
+          path: owned-findings.json
           retention-days: 30

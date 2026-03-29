@@ -1,0 +1,76 @@
+{
+  "path_rules": [
+    {
+      "pattern": "payment",
+      "criticality": "payment_processing",
+      "data_sensitivity": "financial"
+    },
+    {
+      "pattern": "auth",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "login",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "password",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "secret",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "api_key",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "aws_secret",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "gitleaks",
+      "criticality": "authentication",
+      "data_sensitivity": "credentials"
+    },
+    {
+      "pattern": "app.py",
+      "criticality": "api_gateway",
+      "data_sensitivity": "internal"
+    },
+    {
+      "pattern": "api",
+      "criticality": "api_gateway",
+      "data_sensitivity": "internal"
+    },
+    {
+      "pattern": "search",
+      "criticality": "api_gateway",
+      "data_sensitivity": "internal"
+    },
+    {
+      "pattern": "src/",
+      "criticality": "api_gateway",
+      "data_sensitivity": "internal"
+    },
+    {
+      "pattern": "docker",
+      "criticality": "internal_service",
+      "data_sensitivity": "internal"
+    },
+    {
+      "pattern": "localhost",
+      "criticality": "internal_service",
+      "data_sensitivity": "internal"
+    }
+  ],
+  "default_criticality": "internal_service",
+  "default_data_sensitivity": "internal"
+}
