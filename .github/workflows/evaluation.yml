@@ -1,0 +1,353 @@
+name: SecurePipeline Hub - Evaluation Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target to scan'
+        required: true
+        default: 'juice-shop'
+        type: choice
+        options:
+          - juice-shop
+          - dvwa
+          - both
+
+jobs:
+  # ── JUICE SHOP SCANS ──────────────────────────────────────────────────
+  juiceshop-semgrep:
+    name: Juice Shop — Semgrep SAST
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'juice-shop' || github.event.inputs.target == 'both' }}
+
+    steps:
+      - name: Checkout SecurePipeline Hub
+        uses: actions/checkout@v4
+
+      - name: Clone Juice Shop
+        run: |
+          git clone --depth=1 https://github.com/juice-shop/juice-shop evaluation/juice-shop
+          echo "✅ Juice Shop cloned"
+          echo "Files: $(find evaluation/juice-shop -name '*.js' -o -name '*.ts' | wc -l) JS/TS files"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep on Juice Shop
+        run: |
+          semgrep --config=auto \
+            --json \
+            --output=juiceshop-semgrep.json \
+            evaluation/juice-shop \
+            || true
+          echo "✅ Semgrep scan complete"
+
+      - name: Count findings
+        run: |
+          FINDINGS=$(python3 -c "
+          import json
+          data = json.load(open('juiceshop-semgrep.json'))
+          results = data.get('results', [])
+          print(len(results))
+          by_sev = {}
+          for r in results:
+              s = r.get('extra', {}).get('severity', 'UNKNOWN')
+              by_sev[s] = by_sev.get(s, 0) + 1
+          print('By severity:', by_sev)
+          " 2>/dev/null || echo "0")
+          echo "🔍 Juice Shop Semgrep findings: $FINDINGS"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: juiceshop-semgrep
+          path: juiceshop-semgrep.json
+          retention-days: 30
+
+  juiceshop-gitleaks:
+    name: Juice Shop — GitLeaks Secrets
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'juice-shop' || github.event.inputs.target == 'both' }}
+
+    steps:
+      - name: Checkout SecurePipeline Hub
+        uses: actions/checkout@v4
+
+      - name: Clone Juice Shop
+        run: |
+          git clone https://github.com/juice-shop/juice-shop evaluation/juice-shop
+
+      - name: Download GitLeaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+          chmod +x gitleaks
+
+      - name: Run GitLeaks on Juice Shop
+        run: |
+          ./gitleaks detect \
+            --source=evaluation/juice-shop \
+            --report-format=json \
+            --report-path=juiceshop-gitleaks.json \
+            --exit-code=0
+          COUNT=$(python3 -c "import json; d=json.load(open('juiceshop-gitleaks.json')); print(len(d) if isinstance(d,list) else 0)")
+          echo "🔑 Juice Shop secrets found: $COUNT"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: juiceshop-gitleaks
+          path: juiceshop-gitleaks.json
+          retention-days: 30
+
+  juiceshop-trivy:
+    name: Juice Shop — Trivy Container
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'juice-shop' || github.event.inputs.target == 'both' }}
+
+    steps:
+      - name: Checkout SecurePipeline Hub
+        uses: actions/checkout@v4
+
+      - name: Clone Juice Shop
+        run: |
+          git clone --depth=1 https://github.com/juice-shop/juice-shop evaluation/juice-shop
+
+      - name: Build Juice Shop Docker image
+        run: |
+          docker build -t juiceshop-eval:latest evaluation/juice-shop || true
+          echo "✅ Docker build complete"
+
+      - name: Run Trivy on Juice Shop
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: juiceshop-eval:latest
+          format: json
+          output: juiceshop-trivy.json
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      - name: Count findings
+        run: |
+          VULNS=$(python3 -c "
+          import json
+          data = json.load(open('juiceshop-trivy.json'))
+          results = data.get('Results', [])
+          total = sum(len(r.get('Vulnerabilities', []) or []) for r in results)
+          print(total)
+          " 2>/dev/null || echo "0")
+          echo "🐳 Juice Shop container vulns: $VULNS"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: juiceshop-trivy
+          path: juiceshop-trivy.json
+          retention-days: 30
+
+  # ── DVWA SCANS ────────────────────────────────────────────────────────
+  dvwa-semgrep:
+    name: DVWA — Semgrep SAST
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'dvwa' || github.event.inputs.target == 'both' }}
+
+    steps:
+      - name: Checkout SecurePipeline Hub
+        uses: actions/checkout@v4
+
+      - name: Clone DVWA
+        run: |
+          git clone --depth=1 https://github.com/digininja/DVWA evaluation/dvwa
+          echo "✅ DVWA cloned"
+          echo "Files: $(find evaluation/dvwa -name '*.php' | wc -l) PHP files"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep on DVWA
+        run: |
+          semgrep --config=auto \
+            --json \
+            --output=dvwa-semgrep.json \
+            evaluation/dvwa \
+            || true
+          echo "✅ Semgrep scan complete"
+
+      - name: Count findings
+        run: |
+          FINDINGS=$(python3 -c "
+          import json
+          data = json.load(open('dvwa-semgrep.json'))
+          results = data.get('results', [])
+          print(len(results))
+          by_sev = {}
+          for r in results:
+              s = r.get('extra', {}).get('severity', 'UNKNOWN')
+              by_sev[s] = by_sev.get(s, 0) + 1
+          print('By severity:', by_sev)
+          " 2>/dev/null || echo "0")
+          echo "🔍 DVWA Semgrep findings: $FINDINGS"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvwa-semgrep
+          path: dvwa-semgrep.json
+          retention-days: 30
+
+  dvwa-gitleaks:
+    name: DVWA — GitLeaks Secrets
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'dvwa' || github.event.inputs.target == 'both' }}
+
+    steps:
+      - name: Checkout SecurePipeline Hub
+        uses: actions/checkout@v4
+
+      - name: Clone DVWA
+        run: |
+          git clone https://github.com/digininja/DVWA evaluation/dvwa
+
+      - name: Download GitLeaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+          chmod +x gitleaks
+
+      - name: Run GitLeaks on DVWA
+        run: |
+          ./gitleaks detect \
+            --source=evaluation/dvwa \
+            --report-format=json \
+            --report-path=dvwa-gitleaks.json \
+            --exit-code=0
+          COUNT=$(python3 -c "import json; d=json.load(open('dvwa-gitleaks.json')); print(len(d) if isinstance(d,list) else 0)")
+          echo "🔑 DVWA secrets found: $COUNT"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvwa-gitleaks
+          path: dvwa-gitleaks.json
+          retention-days: 30
+
+  dvwa-trivy:
+    name: DVWA — Trivy Container
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.target == 'dvwa' || github.event.inputs.target == 'both' }}
+
+    steps:
+      - name: Checkout SecurePipeline Hub
+        uses: actions/checkout@v4
+
+      - name: Clone DVWA
+        run: |
+          git clone --depth=1 https://github.com/digininja/DVWA evaluation/dvwa
+
+      - name: Build DVWA Docker image
+        run: |
+          docker build -t dvwa-eval:latest evaluation/dvwa || true
+          echo "✅ Docker build complete"
+
+      - name: Run Trivy on DVWA
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: dvwa-eval:latest
+          format: json
+          output: dvwa-trivy.json
+          severity: HIGH,CRITICAL
+          exit-code: 0
+
+      - name: Count findings
+        run: |
+          VULNS=$(python3 -c "
+          import json
+          data = json.load(open('dvwa-trivy.json'))
+          results = data.get('Results', [])
+          total = sum(len(r.get('Vulnerabilities', []) or []) for r in results)
+          print(total)
+          " 2>/dev/null || echo "0")
+          echo "🐳 DVWA container vulns: $VULNS"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvwa-trivy
+          path: dvwa-trivy.json
+          retention-days: 30
+
+  # ── EVALUATION SUMMARY ────────────────────────────────────────────────
+  evaluation-summary:
+    name: Evaluation Summary
+    runs-on: ubuntu-latest
+    needs: [juiceshop-semgrep, juiceshop-gitleaks, juiceshop-trivy, dvwa-semgrep, dvwa-gitleaks, dvwa-trivy]
+    if: always()
+
+    steps:
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Generate Evaluation Report
+        run: |
+          echo "# 📊 SecurePipeline Hub — Evaluation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## OWASP Juice Shop Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Findings |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f juiceshop-semgrep.json ]; then
+            N=$(python3 -c "import json; print(len(json.load(open('juiceshop-semgrep.json')).get('results',[])))" 2>/dev/null || echo "0")
+            echo "| Semgrep (SAST) | $N |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f juiceshop-gitleaks.json ]; then
+            N=$(python3 -c "import json; d=json.load(open('juiceshop-gitleaks.json')); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+            echo "| GitLeaks (Secrets) | $N |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f juiceshop-trivy.json ]; then
+            N=$(python3 -c "import json; d=json.load(open('juiceshop-trivy.json')); print(sum(len(r.get('Vulnerabilities',[]) or []) for r in d.get('Results',[])))" 2>/dev/null || echo "0")
+            echo "| Trivy (Container) | $N |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## DVWA Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Findings |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f dvwa-semgrep.json ]; then
+            N=$(python3 -c "import json; print(len(json.load(open('dvwa-semgrep.json')).get('results',[])))" 2>/dev/null || echo "0")
+            echo "| Semgrep (SAST) | $N |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f dvwa-gitleaks.json ]; then
+            N=$(python3 -c "import json; d=json.load(open('dvwa-gitleaks.json')); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo "0")
+            echo "| GitLeaks (Secrets) | $N |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f dvwa-trivy.json ]; then
+            N=$(python3 -c "import json; d=json.load(open('dvwa-trivy.json')); print(sum(len(r.get('Vulnerabilities',[]) or []) for r in d.get('Results',[])))" 2>/dev/null || echo "0")
+            echo "| Trivy (Container) | $N |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Key Metrics for Research Paper" >> $GITHUB_STEP_SUMMARY
+          echo "- Scanner: Semgrep, GitLeaks, Trivy" >> $GITHUB_STEP_SUMMARY
+          echo "- Target apps: OWASP Juice Shop + DVWA" >> $GITHUB_STEP_SUMMARY
+          echo "- Pipeline: GitHub Actions (ubuntu-latest)" >> $GITHUB_STEP_SUMMARY
