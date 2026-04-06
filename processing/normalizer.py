@@ -59,7 +59,7 @@ def parse_semgrep(filepath):
         print(f"[WARN] Semgrep file not found: {filepath}")
         return findings
 
-    with open(filepath) as f:
+    with open(filepath, encoding='utf-8') as f:
         data = json.load(f)
 
     results = data.get('results', [])
@@ -109,7 +109,7 @@ def parse_gitleaks(filepath):
         print(f"[WARN] GitLeaks file not found: {filepath}")
         return findings
 
-    with open(filepath) as f:
+    with open(filepath, encoding='utf-8') as f:
         data = json.load(f)
 
     # GitLeaks output is a list
@@ -153,7 +153,7 @@ def parse_dependency_check(filepath):
         print(f"[WARN] Dependency check file not found: {filepath}")
         return findings
 
-    with open(filepath) as f:
+    with open(filepath, encoding='utf-8') as f:
         data = json.load(f)
 
     # Handle pip-audit format (list of packages)
@@ -207,7 +207,7 @@ def parse_trivy(filepath):
         print(f"[WARN] Trivy file not found: {filepath}")
         return findings
 
-    with open(filepath) as f:
+    with open(filepath, encoding='utf-8') as f:
         data = json.load(f)
 
     results = data.get('Results', [])
@@ -251,7 +251,7 @@ def parse_zap(filepath):
         print(f"[WARN] ZAP file not found: {filepath}")
         return findings
 
-    with open(filepath) as f:
+    with open(filepath, encoding='utf-8') as f:
         data = json.load(f)
 
     sites = data.get('site', [])

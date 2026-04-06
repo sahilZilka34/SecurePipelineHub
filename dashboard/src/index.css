@@ -2,9 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Basic app styling; Tailwind handles the rest */
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900;
-  }
+:root {
+  --bg-base:       #0f1117;
+  --bg-surface:    #1a1f2e;
+  --bg-card:       #1e2436;
+  --bg-hover:      #252b3b;
+  --border:        #2e3650;
+  --text-primary:  #e8eaf0;
+  --text-secondary:#8b92a8;
+  --text-muted:    #555e78;
+  --accent-blue:   #3b82f6;
+  --accent-blue-dim:#1d4ed8;
+  --critical:      #f43f5e;
+  --high:          #fb923c;
+  --medium:        #facc15;
+  --low:           #34d399;
+  --info:          #94a3b8;
 }
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }

@@ -4,14 +4,41 @@ import { getFindings, getStats } from "../api";
 import RiskChart from "./RiskChart";
 import SLAStatus from "./SLAStatus";
 
-function badgeClassByPriority(priority) {
-  const p = (priority ?? "").toUpperCase();
-  if (p === "CRITICAL") return "bg-red-700 text-white";
-  if (p === "HIGH") return "bg-red-500 text-white";
-  if (p === "MEDIUM") return "bg-orange-400 text-white";
-  if (p === "LOW") return "bg-yellow-400 text-black";
-  if (p === "INFO") return "bg-gray-400 text-white";
-  return "bg-gray-200 text-gray-800";
+const PRIORITY_STYLES = {
+  CRITICAL: "bg-rose-500/20 text-rose-400 border border-rose-500/30",
+  HIGH: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+  MEDIUM: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+  LOW: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+  INFO: "bg-slate-500/20 text-slate-400 border border-slate-500/30",
+};
+
+function badge(priority) {
+  return (
+    PRIORITY_STYLES[(priority ?? "").toUpperCase()] ?? PRIORITY_STYLES.INFO
+  );
+}
+
+function StatCard({ label, value, color, icon }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border)",
+      }}
+      className="rounded-xl p-5"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span
+          style={{ color: "var(--text-secondary)" }}
+          className="text-xs font-medium uppercase tracking-wider"
+        >
+          {label}
+        </span>
+        <span className="text-lg">{icon}</span>
+      </div>
+      <div className={`text-3xl font-bold ${color}`}>{value}</div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -52,122 +79,175 @@ export default function Dashboard() {
     const bySla = stats?.by_sla_status ?? {};
     return {
       total: stats?.total_findings ?? 0,
-      highPriority: byPriority?.HIGH ?? 0,
+      highPriority: (byPriority?.CRITICAL ?? 0) + (byPriority?.HIGH ?? 0),
       overdue: bySla?.OVERDUE ?? 0,
       sentinelFlagged: stats?.sentinel_flagged ?? 0,
     };
   }, [stats]);
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="rounded-lg border bg-white p-6">
-        <div className="text-sm text-gray-600">Loading dashboard...</div>
+      <div
+        style={{
+          backgroundColor: "var(--bg-card)",
+          border: "1px solid var(--border)",
+        }}
+        className="rounded-xl p-8 text-center"
+      >
+        <div
+          style={{ color: "var(--text-secondary)" }}
+          className="text-sm animate-pulse"
+        >
+          Loading dashboard...
+        </div>
       </div>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
-      <div className="rounded-lg border bg-white p-6">
-        <div className="text-sm text-red-700">{error}</div>
+      <div className="rounded-xl p-6 bg-rose-500/10 border border-rose-500/30">
+        <div className="text-rose-400 text-sm">{error}</div>
       </div>
     );
-  }
 
   return (
     <div className="space-y-6">
+      {/* Stat cards */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-sm text-gray-600">Total Findings</div>
-          <div className="mt-2 text-3xl font-semibold">{overview.total}</div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-sm text-gray-600">High Priority</div>
-          <div className="mt-2 text-3xl font-semibold text-red-600">
-            {overview.highPriority}
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-sm text-gray-600">Overdue</div>
-          <div className="mt-2 text-3xl font-semibold text-orange-600">
-            {overview.overdue}
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-white p-4">
-          <div className="text-sm text-gray-600">Sentinel Flagged</div>
-          <div className="mt-2 text-3xl font-semibold text-purple-700">
-            {overview.sentinelFlagged}
-          </div>
-        </div>
+        <StatCard
+          label="Total Findings"
+          value={overview.total}
+          color="text-[#e8eaf0]"
+          icon="🔍"
+        />
+        <StatCard
+          label="Critical + High"
+          value={overview.highPriority}
+          color="text-rose-400"
+          icon="⚠️"
+        />
+        <StatCard
+          label="Overdue"
+          value={overview.overdue}
+          color="text-orange-400"
+          icon="⏰"
+        />
+        <StatCard
+          label="Sentinel Flagged"
+          value={overview.sentinelFlagged}
+          color="text-blue-400"
+          icon="🛡️"
+        />
       </section>
 
+      {/* Main grid */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <div className="rounded-lg border bg-white p-4">
-            <div className="mb-2 text-sm font-semibold text-gray-800">
-              Risk Distribution
-            </div>
-            <RiskChart byPriority={stats?.by_priority ?? {}} />
+        {/* Donut chart */}
+        <div
+          style={{
+            backgroundColor: "var(--bg-card)",
+            border: "1px solid var(--border)",
+          }}
+          className="rounded-xl p-5 lg:col-span-1"
+        >
+          <div
+            style={{ color: "var(--text-secondary)" }}
+            className="text-xs font-medium uppercase tracking-wider mb-4"
+          >
+            Risk Distribution
           </div>
+          <RiskChart byPriority={stats?.by_priority ?? {}} />
         </div>
 
-        <div className="lg:col-span-2">
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            <div className="rounded-lg border bg-white p-4">
-              <div className="mb-3 text-sm font-semibold text-gray-800">
-                Top 5 Highest Risk
-              </div>
-              <div className="space-y-3">
-                {topFindings.map((f) => (
-                  <button
-                    key={f.id}
-                    className="w-full rounded-md border bg-gray-50 p-3 text-left hover:bg-gray-100"
-                    onClick={() => navigate(`/findings/${f.id}`)}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-gray-900">
-                          {f.title}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-600">
-                          {f.file_path}:{f.line_number}
-                        </div>
+        {/* Top findings + SLA */}
+        <div className="lg:col-span-2 grid grid-cols-1 gap-6 xl:grid-cols-2">
+          {/* Top 5 */}
+          <div
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+            }}
+            className="rounded-xl p-5"
+          >
+            <div
+              style={{ color: "var(--text-secondary)" }}
+              className="text-xs font-medium uppercase tracking-wider mb-4"
+            >
+              Top 5 Highest Risk
+            </div>
+            <div className="space-y-2">
+              {topFindings.map((f) => (
+                <button
+                  key={f.id}
+                  style={{
+                    backgroundColor: "var(--bg-hover)",
+                    border: "1px solid var(--border)",
+                  }}
+                  className="w-full rounded-lg p-3 text-left hover:border-blue-500/50 transition-colors"
+                  onClick={() => navigate(`/findings/${f.id}`)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div
+                        style={{ color: "var(--text-primary)" }}
+                        className="truncate text-sm font-medium"
+                      >
+                        {f.title}
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span
-                          className={`rounded px-2 py-1 text-xs font-semibold ${badgeClassByPriority(
-                            f.priority
-                          )}`}
-                        >
-                          {f.priority ?? "UNKNOWN"}
-                        </span>
-                        <div className="text-xs text-gray-700">
-                          Risk: <span className="font-semibold">{f.risk_score}</span>
-                        </div>
+                      <div
+                        style={{ color: "var(--text-muted)" }}
+                        className="mt-0.5 text-xs truncate"
+                      >
+                        {f.file_path}:{f.line_number}
                       </div>
                     </div>
-                  </button>
-                ))}
-              </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${badge(f.priority)}`}
+                      >
+                        {f.priority}
+                      </span>
+                      <span
+                        style={{ color: "var(--text-muted)" }}
+                        className="text-xs"
+                      >
+                        Risk:{" "}
+                        <span
+                          style={{ color: "var(--text-secondary)" }}
+                          className="font-semibold"
+                        >
+                          {f.risk_score}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="rounded-lg border bg-white p-4">
-              <div className="mb-3 text-sm font-semibold text-gray-800">
-                SLA Status
-              </div>
-              <SLAStatus
-                openCount={stats?.by_sla_status?.OPEN ?? 0}
-                overdueCount={stats?.by_sla_status?.OVERDUE ?? 0}
-                noSlaCount={stats?.by_sla_status?.NO_SLA ?? 0}
-              />
+          {/* SLA status */}
+          <div
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+            }}
+            className="rounded-xl p-5"
+          >
+            <div
+              style={{ color: "var(--text-secondary)" }}
+              className="text-xs font-medium uppercase tracking-wider mb-4"
+            >
+              SLA Status
             </div>
+            <SLAStatus
+              openCount={stats?.by_sla_status?.OPEN ?? 0}
+              overdueCount={stats?.by_sla_status?.OVERDUE ?? 0}
+              noSlaCount={stats?.by_sla_status?.NO_SLA ?? 0}
+            />
           </div>
         </div>
       </section>
     </div>
   );
 }
-
