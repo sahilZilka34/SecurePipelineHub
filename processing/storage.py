@@ -62,7 +62,7 @@ def load_all_findings():
         if filename.startswith('findings_') and filename.endswith('.json'):
             filepath = os.path.join(storage_dir, filename)
             try:
-                with open(filepath) as f:
+                with open(filepath, encoding='utf-8') as f:
                     data = json.load(f)
                 all_findings.extend(data.get('findings', []))
             except Exception as e:

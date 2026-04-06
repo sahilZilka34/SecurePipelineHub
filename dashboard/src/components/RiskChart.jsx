@@ -2,41 +2,51 @@ import React, { useMemo } from "react";
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const COLORS = {
-  HIGH: "#ef4444",
-  MEDIUM: "#f97316",
-  LOW: "#eab308",
-  INFO: "#6b7280",
-  CRITICAL: "#b91c1c",
+  CRITICAL: "#f43f5e",
+  HIGH: "#fb923c",
+  MEDIUM: "#facc15",
+  LOW: "#34d399",
+  INFO: "#475569",
 };
 
 export default function RiskChart({ byPriority }) {
   const data = useMemo(() => {
     const src = byPriority ?? {};
-    const order = ["HIGH", "MEDIUM", "LOW", "INFO"];
-    return order.map((key) => ({
-      name: key,
-      value: Number(src[key] ?? 0),
-      color: COLORS[key],
-    }));
+    return ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+      .map((key) => ({
+        name: key,
+        value: Number(src[key] ?? 0),
+        color: COLORS[key],
+      }))
+      .filter((d) => d.value > 0);
   }, [byPriority]);
 
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+  const total = data.reduce((s, d) => s + d.value, 0);
 
   return (
     <div>
-      <div className="mx-auto" style={{ width: "100%", maxWidth: 320 }}>
-        <ResponsiveContainer width="100%" height={260}>
+      <div
+        className="relative mx-auto"
+        style={{ width: "100%", maxWidth: 260 }}
+      >
+        <ResponsiveContainer width="100%" height={220}>
           <PieChart>
             <Tooltip
-              formatter={(value) => [`${value}`, "count"]}
-              contentStyle={{ background: "rgba(255,255,255,0.95)" }}
+              formatter={(value, name) => [value, name]}
+              contentStyle={{
+                backgroundColor: "#1e2436",
+                border: "1px solid #2e3650",
+                borderRadius: 8,
+                color: "#e8eaf0",
+                fontSize: 12,
+              }}
             />
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius={65}
-              outerRadius={95}
+              innerRadius={60}
+              outerRadius={90}
               paddingAngle={3}
               stroke="none"
             >
@@ -46,19 +56,28 @@ export default function RiskChart({ byPriority }) {
             </Pie>
           </PieChart>
         </ResponsiveContainer>
+        {/* Centre label */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <div style={{ color: "#e8eaf0" }} className="text-2xl font-bold">
+            {total}
+          </div>
+          <div style={{ color: "#555e78" }} className="text-xs">
+            total
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         {data.map((d) => (
           <div key={d.name} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span
-                className="h-2.5 w-2.5 rounded-sm"
+                className="h-2 w-2 rounded-sm"
                 style={{ background: d.color }}
               />
-              <span className="font-medium">{d.name}</span>
+              <span style={{ color: "#8b92a8" }}>{d.name}</span>
             </div>
-            <span className="font-semibold text-gray-900">
+            <span style={{ color: "#e8eaf0" }} className="font-semibold">
               {d.value}
             </span>
           </div>
@@ -66,11 +85,10 @@ export default function RiskChart({ byPriority }) {
       </div>
 
       {total === 0 && (
-        <div className="mt-3 text-center text-xs text-gray-500">
-          No data available.
+        <div style={{ color: "#555e78" }} className="mt-3 text-center text-xs">
+          No data.
         </div>
       )}
     </div>
   );
 }
-
